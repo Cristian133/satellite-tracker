@@ -1,0 +1,63 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-satuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-satpass}
+      POSTGRES_DB: ${POSTGRES_DB:-satellites}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-satuser} -d ${POSTGRES_DB:-satellites}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-satuser}:${POSTGRES_PASSWORD:-satpass}@postgres:5432/${POSTGRES_DB:-satellites}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    security_opt:
+      - apparmor:unconfined
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:8000
+      VITE_CESIUM_ION_TOKEN: ${CESIUM_ION_TOKEN:-}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    security_opt:
+      - apparmor:unconfined
+    depends_on:
+      - backend
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  postgres_data:
