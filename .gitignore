@@ -6,3 +6,7 @@ __pycache__/
 dist/
 build/
 *.log
+.pytest_cache/
+*.db
+coverage/
+.coverage

@@ -107,8 +107,39 @@ On startup, the backend creates the database tables, downloads the
 every 2 hours. The frontend connects over WebSocket and places each
 satellite on the globe as positions arrive.
 
+<<<<<<< HEAD
 ## API Reference
+||||||| parent of bf710ce (Add unit test suites for backend and frontend)
+## Próximos pasos sugeridos
+=======
+## Tests
 
+**Backend** (pytest + httpx, contra SQLite en memoria — no hace falta Postgres levantado):
+
+```bash
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+pytest
+```
+
+Cubre: propagación SGP4 (`propagation.py`), fetch/upsert de TLEs contra Celestrak mockeado con `respx` (`tle_fetcher.py`), los endpoints REST (`GET /satellites`, `GET /satellites/positions`, `POST /satellites/refresh`) y el WebSocket `/ws/positions`.
+
+**Frontend** (Vitest + Testing Library, jsdom):
+
+```bash
+cd frontend
+npm install
+npm test          # una corrida
+npm run test:watch # modo watch
+```
+
+Cubre el hook `useSatelliteSocket` (conexión, mensajes, reconexión) y los componentes `App`/`Globe` (Cesium/Resium van mockeados: jsdom no tiene WebGL).
+
+## Próximos pasos sugeridos
+>>>>>>> bf710ce (Add unit test suites for backend and frontend)
+
+<<<<<<< HEAD
 | Method | Endpoint                | Description                                              |
 |--------|--------------------------|------------------------------------------------------------|
 | GET    | `/satellites`            | List tracked satellites (NORAD ID, name, last update)      |
