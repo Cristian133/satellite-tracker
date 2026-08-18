@@ -31,6 +31,17 @@ class GroundTrackPoint(BaseModel):
     timestamp: datetime
 
 
+class WeatherForecast(BaseModel):
+    """Pronóstico horario para la ubicación y el instante del pase (se toma
+    la hora de pronóstico más cercana a `culminate_time`)."""
+
+    timestamp: datetime
+    temperature_c: float
+    cloud_cover_pct: float
+    precipitation_probability_pct: float
+    description: str
+
+
 class VisiblePass(BaseModel):
     """Un pase visible a ojo desnudo: satélite sobre el horizonte,
     iluminado por el sol, con el observador ya en penumbra/oscuridad."""
@@ -40,6 +51,7 @@ class VisiblePass(BaseModel):
     set_time: datetime
     max_elevation_deg: float
     azimuth_deg: float
+    weather: WeatherForecast | None = None
 
 
 class GeocodeResult(BaseModel):

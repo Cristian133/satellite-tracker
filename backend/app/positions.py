@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Satellite
 from app.propagation import ground_track, next_visible_pass, propagate
 from app.schemas import GroundTrackPoint, SatellitePosition, VisiblePass
+from app.weather import get_forecast_at
 
 
 async def get_current_positions(db: AsyncSession) -> list[SatellitePosition]:
@@ -81,4 +82,10 @@ async def get_next_visible_pass(
         search_days=search_days,
         min_elevation_deg=min_elevation_deg,
     )
-    return True, VisiblePass(**raw) if raw is not None else None
+    if raw is None:
+        return True, None
+
+    # El pronóstico es un servicio externo aparte (Open-Meteo): si falla o no
+    # cubre la fecha del pase, se devuelve el pase igual, sin clima.
+    weather = await get_forecast_at(latitude, longitude, raw["culminate_time"])
+    return True, VisiblePass(**raw, weather=weather)

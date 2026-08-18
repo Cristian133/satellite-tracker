@@ -18,12 +18,21 @@ export interface GroundTrackPoint {
   timestamp: string
 }
 
+export interface WeatherForecast {
+  timestamp: string
+  temperature_c: number
+  cloud_cover_pct: number
+  precipitation_probability_pct: number
+  description: string
+}
+
 export interface VisiblePass {
   rise_time: string
   culminate_time: string
   set_time: string
   max_elevation_deg: number
   azimuth_deg: number
+  weather: WeatherForecast | null
 }
 
 export interface GeocodeResult {

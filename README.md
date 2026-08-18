@@ -55,6 +55,7 @@ satellite-tracker/
 ├── .env.example
 ├── .pre-commit-config.yaml        # lint + tests + build, run on every git commit
 ├── .github/workflows/ci.yml       # same checks, run on every push (+ Docker image builds)
+├── scripts/check-precommit.sh     # run the same checks on demand, before committing
 ├── backend/                       # FastAPI + skyfield + Postgres + Redis
 │   ├── pyproject.toml              # Ruff config (lint + format)
 │   ├── app/
@@ -220,6 +221,15 @@ pip install pre-commit
 pre-commit install        # one-time, wires it into .git/hooks/pre-commit
 
 pre-commit run --all-files  # optional: run it on demand, without committing
+```
+
+To check *before* even attempting a commit whether everything would pass,
+run `scripts/check-precommit.sh`: with nothing staged it checks the whole
+repo, with staged changes it checks exactly what a real commit would
+(pass `--all` to force checking the whole repo either way).
+
+```bash
+scripts/check-precommit.sh
 ```
 
 ## CI

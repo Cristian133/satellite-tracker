@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from app.models import Satellite
+from app.schemas import WeatherForecast
 from tests.sample_data import ISS_LINE1, ISS_LINE2, ISS_NAME, ISS_NORAD_ID, tle_epoch
 
 
@@ -9,6 +10,17 @@ async def _seed_iss(db_session):
         Satellite(norad_id=ISS_NORAD_ID, name=ISS_NAME, tle_line1=ISS_LINE1, tle_line2=ISS_LINE2)
     )
     await db_session.commit()
+
+
+def _stub_weather(monkeypatch, forecast=None):
+    """Evita que los tests de next-visible-pass salgan a la red real a
+    buscar el pronóstico: por default no hay pronóstico disponible (como
+    pasaría de verdad, dado que estos tests fijan `now` en 2021)."""
+
+    async def fake_get_forecast_at(latitude, longitude, when):
+        return forecast
+
+    monkeypatch.setattr("app.positions.get_forecast_at", fake_get_forecast_at)
 
 
 def _pin_now_to_the_tle_epoch(monkeypatch):
@@ -134,6 +146,7 @@ async def test_next_visible_pass_returns_a_pass_for_a_tracked_satellite(
 ):
     await _seed_iss(db_session)
     _pin_now_to_the_tle_epoch(monkeypatch)
+    _stub_weather(monkeypatch)
 
     resp = await client.get(
         f"/satellites/{ISS_NORAD_ID}/next-visible-pass",
@@ -146,6 +159,34 @@ async def test_next_visible_pass_returns_a_pass_for_a_tracked_satellite(
     assert body["rise_time"] < body["culminate_time"] < body["set_time"]
     assert body["max_elevation_deg"] >= 10
     assert 0 <= body["azimuth_deg"] < 360
+    assert body["weather"] is None
+
+
+async def test_next_visible_pass_includes_weather_when_forecast_is_available(
+    client, db_session, monkeypatch
+):
+    await _seed_iss(db_session)
+    _pin_now_to_the_tle_epoch(monkeypatch)
+    forecast = WeatherForecast(
+        timestamp=tle_epoch(ISS_LINE1),
+        temperature_c=18.5,
+        cloud_cover_pct=20.0,
+        precipitation_probability_pct=5.0,
+        description="Despejado",
+    )
+    _stub_weather(monkeypatch, forecast)
+
+    resp = await client.get(
+        f"/satellites/{ISS_NORAD_ID}/next-visible-pass",
+        params={"latitude": 40.7, "longitude": -74.0, "search_days": 30},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["weather"]["temperature_c"] == 18.5
+    assert body["weather"]["cloud_cover_pct"] == 20.0
+    assert body["weather"]["precipitation_probability_pct"] == 5.0
+    assert body["weather"]["description"] == "Despejado"
 
 
 async def test_next_visible_pass_returns_null_when_none_matches_the_threshold(
@@ -153,6 +194,7 @@ async def test_next_visible_pass_returns_null_when_none_matches_the_threshold(
 ):
     await _seed_iss(db_session)
     _pin_now_to_the_tle_epoch(monkeypatch)
+    _stub_weather(monkeypatch)
 
     resp = await client.get(
         f"/satellites/{ISS_NORAD_ID}/next-visible-pass",

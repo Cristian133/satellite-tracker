@@ -31,6 +31,7 @@ describe('VisiblePassPanel', () => {
         set_time: '2026-01-01T00:04:00Z',
         max_elevation_deg: 42,
         azimuth_deg: 180,
+        weather: null,
       }),
     )
     vi.stubGlobal('fetch', fetchMock)
@@ -43,6 +44,35 @@ describe('VisiblePassPanel', () => {
       'http://localhost:8000/satellites/25544/next-visible-pass?latitude=40.7&longitude=-74',
     )
     expect(screen.getByText(/Azimut: 180°/)).toBeInTheDocument()
+    expect(screen.getByText('Sin pronóstico disponible para esa fecha.')).toBeInTheDocument()
+  })
+
+  it('shows the weather forecast for the pass time when available', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        rise_time: '2026-01-01T00:00:00Z',
+        culminate_time: '2026-01-01T00:02:00Z',
+        set_time: '2026-01-01T00:04:00Z',
+        max_elevation_deg: 42,
+        azimuth_deg: 180,
+        weather: {
+          timestamp: '2026-01-01T00:00:00Z',
+          temperature_c: 18.4,
+          cloud_cover_pct: 20,
+          precipitation_probability_pct: 5,
+          description: 'Despejado',
+        },
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<VisiblePassPanel noradId={25544} />)
+    fillAndSubmit('40.7', '-74')
+
+    await waitFor(() => expect(screen.getByText(/Despejado/)).toBeInTheDocument())
+    expect(screen.getByText('Temperatura: 18°C')).toBeInTheDocument()
+    expect(screen.getByText('Nubosidad: 20%')).toBeInTheDocument()
+    expect(screen.getByText(/Prob\. de precipitación: 5%/)).toBeInTheDocument()
   })
 
   it('shows a message when no visible pass is found', async () => {
