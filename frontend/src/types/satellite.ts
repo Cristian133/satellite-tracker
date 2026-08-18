@@ -17,3 +17,17 @@ export interface GroundTrackPoint {
   longitude: number
   timestamp: string
 }
+
+export interface VisiblePass {
+  rise_time: string
+  culminate_time: string
+  set_time: string
+  max_elevation_deg: number
+  azimuth_deg: number
+}
+
+export interface GeocodeResult {
+  display_name: string
+  latitude: number
+  longitude: number
+}

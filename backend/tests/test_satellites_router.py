@@ -1,5 +1,7 @@
+from datetime import datetime
+
 from app.models import Satellite
-from tests.sample_data import ISS_LINE1, ISS_LINE2, ISS_NAME, ISS_NORAD_ID
+from tests.sample_data import ISS_LINE1, ISS_LINE2, ISS_NAME, ISS_NORAD_ID, tle_epoch
 
 
 async def _seed_iss(db_session):
@@ -7,6 +9,21 @@ async def _seed_iss(db_session):
         Satellite(norad_id=ISS_NORAD_ID, name=ISS_NAME, tle_line1=ISS_LINE1, tle_line2=ISS_LINE2)
     )
     await db_session.commit()
+
+
+def _pin_now_to_the_tle_epoch(monkeypatch):
+    """Ancla datetime.now() al epoch del TLE de prueba: un pase buscado
+    relativo a "ahora" en la vida real estaría propagando ~2 años más allá
+    del epoch, donde SGP4 ya no es confiable y la búsqueda se vuelve
+    impredecible. Igual que en test_propagation.py."""
+    fixed_now = tle_epoch(ISS_LINE1)
+
+    class _FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fixed_now
+
+    monkeypatch.setattr("app.propagation.datetime", _FixedDatetime)
 
 
 async def test_list_satellites_returns_empty_list_when_none_tracked(client):
@@ -96,3 +113,53 @@ async def test_ground_track_returns_sampled_points_for_a_tracked_satellite(clien
     # Los puntos están ordenados en el tiempo.
     timestamps = [point["timestamp"] for point in body]
     assert timestamps == sorted(timestamps)
+
+
+async def test_next_visible_pass_returns_404_for_an_untracked_satellite(client):
+    resp = await client.get(
+        "/satellites/99999/next-visible-pass", params={"latitude": 40.7, "longitude": -74.0}
+    )
+
+    assert resp.status_code == 404
+
+
+async def test_next_visible_pass_requires_latitude_and_longitude(client, db_session):
+    await _seed_iss(db_session)
+
+    resp = await client.get(f"/satellites/{ISS_NORAD_ID}/next-visible-pass")
+
+    assert resp.status_code == 422
+
+
+async def test_next_visible_pass_returns_a_pass_for_a_tracked_satellite(
+    client, db_session, monkeypatch
+):
+    await _seed_iss(db_session)
+    _pin_now_to_the_tle_epoch(monkeypatch)
+
+    resp = await client.get(
+        f"/satellites/{ISS_NORAD_ID}/next-visible-pass",
+        params={"latitude": 40.7, "longitude": -74.0, "search_days": 30},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body is not None
+    assert body["rise_time"] < body["culminate_time"] < body["set_time"]
+    assert body["max_elevation_deg"] >= 10
+    assert 0 <= body["azimuth_deg"] < 360
+
+
+async def test_next_visible_pass_returns_null_when_none_matches_the_threshold(
+    client, db_session, monkeypatch
+):
+    await _seed_iss(db_session)
+    _pin_now_to_the_tle_epoch(monkeypatch)
+
+    resp = await client.get(
+        f"/satellites/{ISS_NORAD_ID}/next-visible-pass",
+        params={"latitude": 40.7, "longitude": -74.0, "search_days": 3, "min_elevation_deg": 89},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json() is None
