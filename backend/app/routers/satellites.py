@@ -1,12 +1,10 @@
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models import Satellite
-from app.propagation import propagate
+from app.positions import get_current_positions
 from app.schemas import SatelliteOut, SatellitePosition
 from app.tle_fetcher import fetch_and_store_tles
 
@@ -21,24 +19,7 @@ async def list_satellites(db: AsyncSession = Depends(get_db)):
 
 @router.get("/positions", response_model=list[SatellitePosition])
 async def current_positions(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Satellite))
-    satellites = result.scalars().all()
-
-    positions = []
-    for sat in satellites:
-        lat, lon, alt, vel = propagate(sat.tle_line1, sat.tle_line2, sat.name)
-        positions.append(
-            SatellitePosition(
-                norad_id=sat.norad_id,
-                name=sat.name,
-                latitude=lat,
-                longitude=lon,
-                altitude_km=alt,
-                velocity_km_s=vel,
-                timestamp=datetime.now(timezone.utc),
-            )
-        )
-    return positions
+    return await get_current_positions(db)
 
 
 @router.post("/refresh")

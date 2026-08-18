@@ -107,39 +107,8 @@ On startup, the backend creates the database tables, downloads the
 every 2 hours. The frontend connects over WebSocket and places each
 satellite on the globe as positions arrive.
 
-<<<<<<< HEAD
 ## API Reference
-||||||| parent of bf710ce (Add unit test suites for backend and frontend)
-## Próximos pasos sugeridos
-=======
-## Tests
 
-**Backend** (pytest + httpx, contra SQLite en memoria — no hace falta Postgres levantado):
-
-```bash
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt
-pytest
-```
-
-Cubre: propagación SGP4 (`propagation.py`), fetch/upsert de TLEs contra Celestrak mockeado con `respx` (`tle_fetcher.py`), los endpoints REST (`GET /satellites`, `GET /satellites/positions`, `POST /satellites/refresh`) y el WebSocket `/ws/positions`.
-
-**Frontend** (Vitest + Testing Library, jsdom):
-
-```bash
-cd frontend
-npm install
-npm test          # una corrida
-npm run test:watch # modo watch
-```
-
-Cubre el hook `useSatelliteSocket` (conexión, mensajes, reconexión) y los componentes `App`/`Globe` (Cesium/Resium van mockeados: jsdom no tiene WebGL).
-
-## Próximos pasos sugeridos
->>>>>>> bf710ce (Add unit test suites for backend and frontend)
-
-<<<<<<< HEAD
 | Method | Endpoint                | Description                                              |
 |--------|--------------------------|------------------------------------------------------------|
 | GET    | `/satellites`            | List tracked satellites (NORAD ID, name, last update)      |
@@ -162,6 +131,30 @@ Example `GET /satellites/positions` response:
   }
 ]
 ```
+
+## Tests
+
+**Backend** (pytest + httpx, against an in-memory SQLite — no need to have Postgres running):
+
+```bash
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+pytest
+```
+
+Covers: SGP4 propagation (`propagation.py`), TLE fetch/upsert against a mocked Celestrak via `respx` (`tle_fetcher.py`), the REST endpoints (`GET /satellites`, `GET /satellites/positions`, `POST /satellites/refresh`), and the `/ws/positions` WebSocket.
+
+**Frontend** (Vitest + Testing Library, jsdom):
+
+```bash
+cd frontend
+npm install
+npm test          # single run
+npm run test:watch # watch mode
+```
+
+Covers the `useSatelliteSocket` hook (connection, messages, reconnection) and the `App`/`Globe` components (Cesium/Resium are mocked: jsdom has no WebGL).
 
 ## Configuration
 
@@ -188,7 +181,7 @@ Additional backend settings live in `backend/app/config.py`, notably:
 - [ ] **More satellites** — track other Celestrak groups (`active`, `visual`, `gps-ops`, ...)
 - [ ] **Visible passes** — use skyfield's observer-based pass prediction (elevation/azimuth) for "next visible ISS pass over your city"
 - [ ] **Authentication** — if the project moves beyond public read-only access
-- [ ] **Tests** — pytest + httpx for the backend, Vitest/Testing Library for the frontend
+- [x] **Tests** — pytest + httpx for the backend, Vitest/Testing Library for the frontend (see [Tests](#tests) above)
 
 ## License
 

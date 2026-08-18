@@ -1,8 +1,10 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.broadcaster import broadcaster
 from app.database import Base, async_session, engine
 from app.routers import satellites, ws
 from app.scheduler import start_scheduler
@@ -21,7 +23,11 @@ async def lifespan(app: FastAPI):
         await fetch_and_store_tles(db)
 
     start_scheduler()
-    yield
+    broadcast_task = asyncio.create_task(broadcaster.broadcast_forever())
+    try:
+        yield
+    finally:
+        broadcast_task.cancel()
 
 
 app = FastAPI(title="Satellite Tracker API", lifespan=lifespan)
