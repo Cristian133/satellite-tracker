@@ -1,7 +1,13 @@
 from datetime import datetime, timedelta
 
-from app.propagation import ground_track, orbital_period_minutes, propagate
+from app.propagation import ground_track, next_visible_pass, orbital_period_minutes, propagate
 from tests.sample_data import ISS_LINE1, ISS_LINE2, tle_epoch
+
+# Nueva York, dentro de la banda de latitudes que cubre la inclinación
+# orbital de la ISS (51.6°) — cualquier ciudad entre -51.6° y 51.6° de
+# latitud recibe pases de la ISS.
+NYC_LATITUDE = 40.7
+NYC_LONGITUDE = -74.0
 
 
 def test_propagate_returns_a_realistic_iss_position():
@@ -76,3 +82,44 @@ def test_ground_track_points_are_ordered_in_time():
 
     timestamps = [t for t, _lat, _lon in track]
     assert timestamps == sorted(timestamps)
+
+
+def test_next_visible_pass_finds_a_real_pass_over_a_city_in_range():
+    when = tle_epoch(ISS_LINE1)
+
+    result = next_visible_pass(
+        ISS_LINE1,
+        ISS_LINE2,
+        "ISS (ZARYA)",
+        latitude=NYC_LATITUDE,
+        longitude=NYC_LONGITUDE,
+        search_days=30,
+        when=when,
+    )
+
+    assert result is not None
+    assert result["rise_time"] < result["culminate_time"] < result["set_time"]
+    # find_events() ya filtra por altitude_degrees=min_elevation_deg (10° por
+    # default), así que la culminación tiene que estar por encima de eso.
+    assert result["max_elevation_deg"] >= 10
+    assert 0 <= result["azimuth_deg"] < 360
+
+
+def test_next_visible_pass_returns_none_when_nothing_matches_the_threshold():
+    when = tle_epoch(ISS_LINE1)
+
+    # Casi ningún pase real culmina a 89° de elevación (eso es casi
+    # directamente arriba del observador); en una ventana chica alcanza
+    # para forzar el caso "no encontré nada".
+    result = next_visible_pass(
+        ISS_LINE1,
+        ISS_LINE2,
+        "ISS (ZARYA)",
+        latitude=NYC_LATITUDE,
+        longitude=NYC_LONGITUDE,
+        search_days=3,
+        min_elevation_deg=89,
+        when=when,
+    )
+
+    assert result is None

@@ -61,17 +61,22 @@ satellite-tracker/
 │   │   ├── models.py                # Satellite table (norad_id, TLE lines)
 │   │   ├── schemas.py               # Pydantic DTOs
 │   │   ├── tle_fetcher.py           # fetches TLEs from Celestrak and upserts them
-│   │   ├── propagation.py           # SGP4 propagation -> lat/lon/alt/velocity
+│   │   ├── propagation.py           # SGP4 propagation, ground track sampling, visible-pass search
+│   │   ├── positions.py             # DB + propagation glue shared by the REST endpoints and the WS broadcaster
+│   │   ├── broadcaster.py           # single background loop that fans positions out to every /ws/positions client
 │   │   ├── scheduler.py             # periodic TLE refresh (APScheduler)
 │   │   └── routers/
-│   │       ├── satellites.py        # GET /satellites, GET /satellites/positions, POST /satellites/refresh
-│   │       └── ws.py                # WS /ws/positions (pushes every 2s)
+│   │       ├── satellites.py        # GET /satellites, .../positions, .../ground-track, .../next-visible-pass, POST .../refresh
+│   │       ├── geocoding.py         # GET /geocode (city/province/country -> lat/lon, via Nominatim)
+│   │       └── ws.py                # WS /ws/positions (registers/unregisters clients on the shared broadcaster)
 │   └── requirements.txt
 └── frontend/                      # React + TypeScript + CesiumJS (Resium)
     └── src/
         ├── App.tsx
-        ├── components/Globe.tsx           # Cesium globe with satellite entities
-        ├── hooks/useSatelliteSocket.ts    # WebSocket client with reconnection
+        ├── components/Globe.tsx              # Cesium globe: satellite entity + ground-track polyline
+        ├── components/VisiblePassPanel.tsx   # lat/lon or place-name search -> next visible pass
+        ├── hooks/useSatelliteSocket.ts       # WebSocket client with reconnection
+        ├── hooks/useGroundTrack.ts           # polls the ground-track endpoint every 5 minutes
         └── types/satellite.ts
 ```
 
@@ -114,7 +119,22 @@ satellite on the globe as positions arrive.
 | GET    | `/satellites`            | List tracked satellites (NORAD ID, name, last update)      |
 | GET    | `/satellites/positions`  | Current propagated position for every satellite            |
 | POST   | `/satellites/refresh`    | Force an immediate TLE refresh from Celestrak               |
+| GET    | `/satellites/{norad_id}/ground-track` | Sampled ground track (lat/lon) for one full orbital period centered on now |
+| GET    | `/satellites/{norad_id}/next-visible-pass` | Next naked-eye-visible pass over an observer's `latitude`/`longitude` (query params), or `null` if none within `search_days` |
+| GET    | `/geocode`               | Resolves a free-text place (`query`, e.g. `"Rosario, Santa Fe, Argentina"`) to a list of candidate `latitude`/`longitude` matches |
 | WS     | `/ws/positions`          | Streams the full position list every 2 seconds              |
+
+`next-visible-pass` needs a real "is it dark, is the satellite sunlit" check
+against the sun's position, so the backend downloads a small JPL ephemeris
+(`de421.bsp`, ~17MB) from the network the first time that endpoint is hit,
+and caches it on disk afterwards.
+
+`/geocode` proxies [Nominatim](https://nominatim.openstreetmap.org) (OpenStreetMap),
+so it needs outbound internet access and is subject to Nominatim's public
+usage policy (no bursts, identifiable `User-Agent` — see
+`nominatim_user_agent` in `backend/app/config.py`). The `VisiblePassPanel`
+frontend component uses it to let users search by city/province/country
+instead of typing raw coordinates.
 
 Example `GET /satellites/positions` response:
 
@@ -143,7 +163,7 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-Covers: SGP4 propagation (`propagation.py`), TLE fetch/upsert against a mocked Celestrak via `respx` (`tle_fetcher.py`), the REST endpoints (`GET /satellites`, `GET /satellites/positions`, `POST /satellites/refresh`), and the `/ws/positions` WebSocket.
+Covers: SGP4 propagation, ground-track sampling and visible-pass prediction (`propagation.py`), TLE fetch/upsert against a mocked Celestrak via `respx` (`tle_fetcher.py`), every REST endpoint under `/satellites`, and the `/ws/positions` WebSocket.
 
 **Frontend** (Vitest + Testing Library, jsdom):
 
@@ -154,7 +174,7 @@ npm test          # single run
 npm run test:watch # watch mode
 ```
 
-Covers the `useSatelliteSocket` hook (connection, messages, reconnection) and the `App`/`Globe` components (Cesium/Resium are mocked: jsdom has no WebGL).
+Covers the `useSatelliteSocket`/`useGroundTrack` hooks, the `App`/`Globe`/`VisiblePassPanel` components (Cesium/Resium are mocked: jsdom has no WebGL).
 
 ## Configuration
 
@@ -179,7 +199,7 @@ Additional backend settings live in `backend/app/config.py`, notably:
 - [ ] **Migrations** — replace the `create_all` call in the lifespan with Alembic
 - [ ] **Historical data** — store position time series with TimescaleDB instead of always recomputing live
 - [ ] **More satellites** — track other Celestrak groups (`active`, `visual`, `gps-ops`, ...)
-- [ ] **Visible passes** — use skyfield's observer-based pass prediction (elevation/azimuth) for "next visible ISS pass over your city"
+- [x] **Visible passes** — `GET /satellites/{norad_id}/next-visible-pass?latitude=...&longitude=...` (see [API Reference](#api-reference) above)
 - [ ] **Authentication** — if the project moves beyond public read-only access
 - [x] **Tests** — pytest + httpx for the backend, Vitest/Testing Library for the frontend (see [Tests](#tests) above)
 

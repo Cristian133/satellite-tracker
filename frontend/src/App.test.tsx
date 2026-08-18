@@ -19,6 +19,12 @@ vi.mock('./components/Globe', () => ({
   ),
 }))
 
+vi.mock('./components/VisiblePassPanel', () => ({
+  VisiblePassPanel: ({ noradId }: { noradId: number | null }) => (
+    <div data-testid="visible-pass-panel" data-norad-id={noradId ?? ''} />
+  ),
+}))
+
 vi.mock('cesium', () => ({
   Ion: { defaultAccessToken: '' },
 }))
@@ -109,5 +115,24 @@ describe('App', () => {
     render(<App />)
 
     expect(screen.getByTestId('globe')).toHaveAttribute('data-track-points', '2')
+  })
+
+  it('passes the current satellite norad_id down to the VisiblePassPanel', () => {
+    useSatelliteSocketMock.mockReturnValue({ satellite, connected: true })
+
+    render(<App />)
+
+    expect(screen.getByTestId('visible-pass-panel')).toHaveAttribute(
+      'data-norad-id',
+      String(satellite.norad_id),
+    )
+  })
+
+  it('passes no norad_id to the VisiblePassPanel while there is no satellite yet', () => {
+    useSatelliteSocketMock.mockReturnValue({ satellite: null, connected: false })
+
+    render(<App />)
+
+    expect(screen.getByTestId('visible-pass-panel')).toHaveAttribute('data-norad-id', '')
   })
 })

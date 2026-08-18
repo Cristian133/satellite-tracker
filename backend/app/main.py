@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.broadcaster import broadcaster
 from app.database import Base, async_session, engine
-from app.routers import satellites, ws
+from app.routers import geocoding, satellites, ws
 from app.scheduler import start_scheduler
 from app.tle_fetcher import fetch_and_store_tles
 
@@ -40,6 +40,7 @@ app.add_middleware(
 )
 
 app.include_router(satellites.router)
+app.include_router(geocoding.router)
 app.include_router(ws.router)
 
 

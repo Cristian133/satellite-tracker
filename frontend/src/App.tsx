@@ -1,6 +1,7 @@
 import { Ion } from 'cesium'
 import './App.css'
 import { Globe } from './components/Globe'
+import { VisiblePassPanel } from './components/VisiblePassPanel'
 import { useGroundTrack } from './hooks/useGroundTrack'
 import { useSatelliteSocket } from './hooks/useSatelliteSocket'
 
@@ -16,6 +17,7 @@ function App() {
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
       <Globe satellite={satellite} groundTrack={groundTrack} />
+      <VisiblePassPanel noradId={satellite?.norad_id ?? null} />
       <div
         style={{
           position: 'absolute',

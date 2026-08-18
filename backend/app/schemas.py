@@ -29,3 +29,22 @@ class GroundTrackPoint(BaseModel):
     latitude: float
     longitude: float
     timestamp: datetime
+
+
+class VisiblePass(BaseModel):
+    """Un pase visible a ojo desnudo: satélite sobre el horizonte,
+    iluminado por el sol, con el observador ya en penumbra/oscuridad."""
+
+    rise_time: datetime
+    culminate_time: datetime
+    set_time: datetime
+    max_elevation_deg: float
+    azimuth_deg: float
+
+
+class GeocodeResult(BaseModel):
+    """Resultado de resolver una ciudad/provincia/país a coordenadas."""
+
+    display_name: str
+    latitude: float
+    longitude: float

@@ -11,5 +11,6 @@ build/
 coverage/
 .coverage
 *.tsbuildinfo
+*.bsp
 frontend/vite.config.js
 frontend/vite.config.d.ts

@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     celestrak_url: str = "https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=tle"
     tle_refresh_minutes: int = 120
 
+    # Nominatim (OpenStreetMap) para geocoding de ciudad/provincia/país.
+    # Uso público: requiere un User-Agent identificable y no admite ráfagas
+    # (máx. ~1 req/seg), por eso solo se llama on-demand desde el buscador.
+    nominatim_url: str = "https://nominatim.openstreetmap.org/search"
+    nominatim_user_agent: str = "satellite-tracker/1.0 (dev local)"
+
     class Config:
         env_file = ".env"
 
