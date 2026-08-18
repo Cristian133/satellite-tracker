@@ -1,0 +1,70 @@
+# Requiere que backend/.venv y frontend/node_modules ya estén instalados
+# (ver README: "Getting Started" / "Tests"), ya que los hooks locales corren
+# con las herramientas del entorno de desarrollo, no en un entorno aislado
+# propio de pre-commit.
+#
+# Instalación:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Corrida manual sobre todo el repo:
+#   pre-commit run --all-files
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-added-large-files
+      - id: check-yaml
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.3
+    hooks:
+      - id: ruff
+        name: backend - ruff lint
+        args: [--fix, --exit-non-zero-on-fix]
+        files: ^backend/
+      - id: ruff-format
+        name: backend - ruff format
+        files: ^backend/
+
+  - repo: local
+    hooks:
+      - id: backend-tests
+        name: backend - pytest
+        entry: bash -c 'cd backend && source .venv/bin/activate 2>/dev/null; python -m pytest -q'
+        language: system
+        files: ^backend/
+        pass_filenames: false
+
+      - id: backend-build
+        name: backend - build check (compileall)
+        description: Compila todo el código del backend para detectar errores antes del build de Docker en CI.
+        entry: bash -c 'cd backend && source .venv/bin/activate 2>/dev/null; python -m compileall -q app'
+        language: system
+        files: ^backend/
+        pass_filenames: false
+
+      - id: frontend-lint
+        name: frontend - eslint
+        entry: bash -c 'cd frontend && npm run lint'
+        language: system
+        files: ^frontend/
+        pass_filenames: false
+
+      - id: frontend-tests
+        name: frontend - vitest
+        entry: bash -c 'cd frontend && npm test'
+        language: system
+        files: ^frontend/
+        pass_filenames: false
+
+      - id: frontend-build
+        name: frontend - vite build
+        entry: bash -c 'cd frontend && npm run build'
+        language: system
+        files: ^frontend/
+        pass_filenames: false

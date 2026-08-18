@@ -2,7 +2,7 @@
 que ya resuelve la conversión TEME -> geodésica WGS84 correctamente)."""
 
 import math
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from skyfield.api import EarthSatellite, load, wgs84
 
@@ -18,7 +18,7 @@ def propagate(
     when: datetime | None = None,
 ) -> tuple[float, float, float, float]:
     """Devuelve (lat_deg, lon_deg, alt_km, velocidad_km_s) para un TLE en un instante UTC dado."""
-    when = when or datetime.now(timezone.utc)
+    when = when or datetime.now(UTC)
     satellite = EarthSatellite(tle_line1, tle_line2, name, _ts)
 
     t = _ts.from_datetime(when)
@@ -53,7 +53,7 @@ def ground_track(
     altitud: una ground track se proyecta sobre la superficie) a lo largo de
     un período orbital completo, centrado en `when` (mitad pasado, mitad
     futuro). Devuelve una lista de (instante UTC, lat_deg, lon_deg)."""
-    when = when or datetime.now(timezone.utc)
+    when = when or datetime.now(UTC)
     half_period = timedelta(minutes=orbital_period_minutes(tle_line1, tle_line2, name) / 2)
     start = when - half_period
     step = (2 * half_period) / (samples - 1)
@@ -99,7 +99,7 @@ def next_visible_pass(
     observador ya esté en penumbra u oscuridad (sol a más de 6° bajo el
     horizonte, arranque del crepúsculo civil). Devuelve None si no
     encuentra ninguno dentro de `search_days`."""
-    when = when or datetime.now(timezone.utc)
+    when = when or datetime.now(UTC)
     satellite = EarthSatellite(tle_line1, tle_line2, name, _ts)
     observer = wgs84.latlon(latitude, longitude, elevation_m)
     eph = _ephemeris()

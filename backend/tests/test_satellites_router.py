@@ -75,9 +75,7 @@ async def test_refresh_endpoint_delegates_to_tle_fetcher_and_returns_count(clien
     async def fake_fetch_and_store_tles(db):
         return 3
 
-    monkeypatch.setattr(
-        "app.routers.satellites.fetch_and_store_tles", fake_fetch_and_store_tles
-    )
+    monkeypatch.setattr("app.routers.satellites.fetch_and_store_tles", fake_fetch_and_store_tles)
 
     resp = await client.post("/satellites/refresh")
 

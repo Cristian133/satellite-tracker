@@ -8,11 +8,8 @@ module does that as its very first action.
 
 import os
 
-os.environ.setdefault(
-    "DATABASE_URL", "sqlite+aiosqlite:///./.pytest_satellite_tracker.db"
-)
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./.pytest_satellite_tracker.db")
 
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 

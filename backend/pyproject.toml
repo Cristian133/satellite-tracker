@@ -1,0 +1,23 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["de421.bsp", "*.db"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.lint.flake8-bugbear]
+# El patrón `Depends(get_db)` como valor por defecto es el idiomático de
+# FastAPI (la inyección de dependencias funciona así a propósito), no el
+# antipatrón genérico de "mutable default" que B008 busca detectar.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Body"]

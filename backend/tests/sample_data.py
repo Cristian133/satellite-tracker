@@ -5,7 +5,7 @@ propagate them relative to their own epoch rather than to "now" — but using
 real data keeps the numbers (altitude, velocity) realistic.
 """
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 ISS_NORAD_ID = 25544
 ISS_NAME = "ISS (ZARYA)"
@@ -32,4 +32,4 @@ def tle_epoch(line1: str) -> datetime:
     year = int(epoch_str[:2])
     year += 2000 if year < 57 else 1900
     day_of_year = float(epoch_str[2:])
-    return datetime(year, 1, 1, tzinfo=timezone.utc) + timedelta(days=day_of_year - 1)
+    return datetime(year, 1, 1, tzinfo=UTC) + timedelta(days=day_of_year - 1)
