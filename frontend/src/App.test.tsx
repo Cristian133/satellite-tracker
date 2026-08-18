@@ -1,15 +1,22 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SatellitePosition } from './types/satellite'
 
 const useSatelliteSocketMock = vi.fn()
+const useGroundTrackMock = vi.fn()
 
 vi.mock('./hooks/useSatelliteSocket', () => ({
   useSatelliteSocket: () => useSatelliteSocketMock(),
 }))
 
+vi.mock('./hooks/useGroundTrack', () => ({
+  useGroundTrack: (noradId: number | null) => useGroundTrackMock(noradId),
+}))
+
 vi.mock('./components/Globe', () => ({
-  Globe: () => <div data-testid="globe" />,
+  Globe: ({ groundTrack }: { groundTrack?: unknown[] }) => (
+    <div data-testid="globe" data-track-points={groundTrack?.length ?? 0} />
+  ),
 }))
 
 vi.mock('cesium', () => ({
@@ -28,6 +35,10 @@ const satellite: SatellitePosition = {
   velocity_km_s: 7.66,
   timestamp: '2026-01-01T00:00:00Z',
 }
+
+beforeEach(() => {
+  useGroundTrackMock.mockReturnValue([])
+})
 
 describe('App', () => {
   it('shows a waiting message while no satellite position has arrived', () => {
@@ -70,5 +81,33 @@ describe('App', () => {
     render(<App />)
 
     expect(screen.getByTestId('globe')).toBeInTheDocument()
+  })
+
+  it('requests the ground track for the current satellite norad_id', () => {
+    useSatelliteSocketMock.mockReturnValue({ satellite, connected: true })
+
+    render(<App />)
+
+    expect(useGroundTrackMock).toHaveBeenCalledWith(satellite.norad_id)
+  })
+
+  it('requests no ground track while there is no satellite yet', () => {
+    useSatelliteSocketMock.mockReturnValue({ satellite: null, connected: false })
+
+    render(<App />)
+
+    expect(useGroundTrackMock).toHaveBeenCalledWith(null)
+  })
+
+  it('passes the ground track points down to the Globe', () => {
+    useSatelliteSocketMock.mockReturnValue({ satellite, connected: true })
+    useGroundTrackMock.mockReturnValue([
+      { latitude: 1, longitude: 2, timestamp: '2026-01-01T00:00:00Z' },
+      { latitude: 3, longitude: 4, timestamp: '2026-01-01T00:01:00Z' },
+    ])
+
+    render(<App />)
+
+    expect(screen.getByTestId('globe')).toHaveAttribute('data-track-points', '2')
   })
 })

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from app.propagation import propagate
+from app.propagation import ground_track, orbital_period_minutes, propagate
 from tests.sample_data import ISS_LINE1, ISS_LINE2, tle_epoch
 
 
@@ -44,3 +44,35 @@ def test_propagate_defaults_to_now_when_no_time_is_given(monkeypatch):
     assert -90 <= lat <= 90
     assert -180 <= lon <= 180
     assert 380 <= alt_km <= 430
+
+
+def test_orbital_period_matches_the_iss_known_period():
+    period = orbital_period_minutes(ISS_LINE1, ISS_LINE2, "ISS (ZARYA)")
+
+    # La ISS orbita cada ~92-93 minutos.
+    assert 90 <= period <= 95
+
+
+def test_ground_track_samples_one_full_period_centered_on_when():
+    when = tle_epoch(ISS_LINE1)
+    period = orbital_period_minutes(ISS_LINE1, ISS_LINE2, "ISS (ZARYA)")
+
+    track = ground_track(ISS_LINE1, ISS_LINE2, "ISS (ZARYA)", samples=10, when=when)
+
+    assert len(track) == 10
+    first_t, first_lat, first_lon = track[0]
+    last_t, last_lat, last_lon = track[-1]
+    assert abs((first_t - (when - timedelta(minutes=period / 2))).total_seconds()) < 1
+    assert abs((last_t - (when + timedelta(minutes=period / 2))).total_seconds()) < 1
+    for _t, lat, lon in track:
+        assert -90 <= lat <= 90
+        assert -180 <= lon <= 180
+
+
+def test_ground_track_points_are_ordered_in_time():
+    when = tle_epoch(ISS_LINE1)
+
+    track = ground_track(ISS_LINE1, ISS_LINE2, "ISS (ZARYA)", samples=5, when=when)
+
+    timestamps = [t for t, _lat, _lon in track]
+    assert timestamps == sorted(timestamps)

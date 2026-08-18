@@ -73,3 +73,26 @@ async def test_health_check(client):
 
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
+
+
+async def test_ground_track_returns_404_for_an_untracked_satellite(client):
+    resp = await client.get("/satellites/99999/ground-track")
+
+    assert resp.status_code == 404
+
+
+async def test_ground_track_returns_sampled_points_for_a_tracked_satellite(client, db_session):
+    await _seed_iss(db_session)
+
+    resp = await client.get(f"/satellites/{ISS_NORAD_ID}/ground-track")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) == 120  # default de ground_track()
+    for point in body:
+        assert -90 <= point["latitude"] <= 90
+        assert -180 <= point["longitude"] <= 180
+        assert "timestamp" in point
+    # Los puntos están ordenados en el tiempo.
+    timestamps = [point["timestamp"] for point in body]
+    assert timestamps == sorted(timestamps)
