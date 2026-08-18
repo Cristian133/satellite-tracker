@@ -49,9 +49,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # jsdom (usado por Vitest) trae undici@^8.9.0, que exige Node >=22.22.2
+      # o >=24.15.0; el frontend/Dockerfile usa node:20-alpine, pero eso solo
+      # corre `npm run dev`, nunca los tests, así que no hace falta que
+      # coincida con la versión usada acá.
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
