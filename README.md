@@ -53,7 +53,10 @@ Celestrak (TLE) → FastAPI + skyfield (SGP4) → WebSocket → CesiumJS globe
 satellite-tracker/
 ├── docker-compose.yml
 ├── .env.example
+├── .pre-commit-config.yaml        # lint + tests + build, run on every git commit
+├── .github/workflows/ci.yml       # same checks, run on every push (+ Docker image builds)
 ├── backend/                       # FastAPI + skyfield + Postgres + Redis
+│   ├── pyproject.toml              # Ruff config (lint + format)
 │   ├── app/
 │   │   ├── main.py                # FastAPI app & lifespan (create tables, seed TLEs, start scheduler)
 │   │   ├── config.py               # settings (env vars)
@@ -71,6 +74,7 @@ satellite-tracker/
 │   │       └── ws.py                # WS /ws/positions (registers/unregisters clients on the shared broadcaster)
 │   └── requirements.txt
 └── frontend/                      # React + TypeScript + CesiumJS (Resium)
+    ├── eslint.config.js            # ESLint config (flat config)
     └── src/
         ├── App.tsx
         ├── components/Globe.tsx              # Cesium globe: satellite entity + ground-track polyline
@@ -160,7 +164,7 @@ Example `GET /satellites/positions` response:
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
-pytest
+python -m pytest
 ```
 
 Covers: SGP4 propagation, ground-track sampling and visible-pass prediction (`propagation.py`), TLE fetch/upsert against a mocked Celestrak via `respx` (`tle_fetcher.py`), every REST endpoint under `/satellites`, and the `/ws/positions` WebSocket.
@@ -175,6 +179,56 @@ npm run test:watch # watch mode
 ```
 
 Covers the `useSatelliteSocket`/`useGroundTrack` hooks, the `App`/`Globe`/`VisiblePassPanel` components (Cesium/Resium are mocked: jsdom has no WebGL).
+
+## Linters
+
+**Backend** — [Ruff](https://docs.astral.sh/ruff/) (lint + format), configured in `backend/pyproject.toml`:
+
+```bash
+cd backend
+source .venv/bin/activate
+ruff check .           # lint
+ruff check . --fix     # lint, autofixing what it can
+ruff format .          # format
+ruff format --check .  # format, only checking
+```
+
+**Frontend** — [ESLint](https://eslint.org/) (flat config), configured in `frontend/eslint.config.js`:
+
+```bash
+cd frontend
+npm run lint       # check
+npm run lint:fix   # check, autofixing what it can
+```
+
+## Pre-commit hooks
+
+Configured in `.pre-commit-config.yaml` at the repo root. On every `git commit`
+it runs, for whichever side(s) of the repo have staged changes: a few generic
+hygiene checks (trailing whitespace, merge conflict markers, large files),
+the backend linter/formatter (Ruff, autofixing), the backend unit tests, a
+backend build sanity check (`compileall`, catches import/syntax errors fast
+without needing Docker), the frontend linter (ESLint), the frontend unit
+tests (Vitest), and the frontend production build (`vite build`).
+
+The hooks call the tools already installed in `backend/.venv` and
+`frontend/node_modules` (see [Tests](#tests) above for how to set those up)
+— they don't manage their own Python/Node environment for the project code.
+
+```bash
+pip install pre-commit
+pre-commit install        # one-time, wires it into .git/hooks/pre-commit
+
+pre-commit run --all-files  # optional: run it on demand, without committing
+```
+
+## CI
+
+`.github/workflows/ci.yml` runs the same checks as the pre-commit hooks on
+every push to any branch, in two independent jobs (`backend`, `frontend`).
+The one difference from the local hooks: instead of the lighter local build
+checks, CI builds each service's actual Docker image (`docker build`) as its
+final step, since GitHub-hosted runners always have Docker available.
 
 ## Configuration
 
@@ -202,6 +256,7 @@ Additional backend settings live in `backend/app/config.py`, notably:
 - [x] **Visible passes** — `GET /satellites/{norad_id}/next-visible-pass?latitude=...&longitude=...` (see [API Reference](#api-reference) above)
 - [ ] **Authentication** — if the project moves beyond public read-only access
 - [x] **Tests** — pytest + httpx for the backend, Vitest/Testing Library for the frontend (see [Tests](#tests) above)
+- [x] **Linters, pre-commit hooks & CI** — Ruff (backend) + ESLint (frontend), wired into `.pre-commit-config.yaml` and `.github/workflows/ci.yml` (see [Linters](#linters), [Pre-commit hooks](#pre-commit-hooks) and [CI](#ci) above)
 
 ## License
 

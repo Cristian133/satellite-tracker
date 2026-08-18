@@ -14,11 +14,18 @@ const REFRESH_INTERVAL_MS = 5 * 60 * 1000
 export function useGroundTrack(noradId: number | null): GroundTrackPoint[] {
   const [track, setTrack] = useState<GroundTrackPoint[]>([])
 
+  // Reinicia la traza al cambiar de satélite ajustando el estado durante el
+  // render (en vez de en un efecto): evita el render en cascada que dispara
+  // un setState síncrono dentro de un efecto.
+  // https://react.dev/reference/react/useState#storing-information-from-previous-renders
+  const [trackedNoradId, setTrackedNoradId] = useState(noradId)
+  if (noradId !== trackedNoradId) {
+    setTrackedNoradId(noradId)
+    setTrack([])
+  }
+
   useEffect(() => {
-    if (noradId === null) {
-      setTrack([])
-      return
-    }
+    if (noradId === null) return
 
     let cancelled = false
 

@@ -6,7 +6,7 @@ broadcaster del WebSocket, para que no diverjan en cómo manejan un TLE que
 falla al propagarse (antes el WS salteaba el satélite con problemas y el
 REST tiraba un 500 para toda la respuesta)."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,7 +36,7 @@ async def get_current_positions(db: AsyncSession) -> list[SatellitePosition]:
                 longitude=lon,
                 altitude_km=alt,
                 velocity_km_s=vel,
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
             )
         )
     return positions
@@ -50,9 +50,7 @@ async def get_ground_track(db: AsyncSession, norad_id: int) -> list[GroundTrackP
         return None
 
     track = ground_track(sat.tle_line1, sat.tle_line2, sat.name)
-    return [
-        GroundTrackPoint(latitude=lat, longitude=lon, timestamp=t) for t, lat, lon in track
-    ]
+    return [GroundTrackPoint(latitude=lat, longitude=lon, timestamp=t) for t, lat, lon in track]
 
 
 async def get_next_visible_pass(
