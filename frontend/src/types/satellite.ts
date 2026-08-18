@@ -11,3 +11,9 @@ export interface SatellitePosition {
 export interface PositionsMessage {
   satellites: SatellitePosition[]
 }
+
+export interface GroundTrackPoint {
+  latitude: number
+  longitude: number
+  timestamp: string
+}

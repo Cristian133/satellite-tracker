@@ -12,8 +12,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Satellite
-from app.propagation import propagate
-from app.schemas import SatellitePosition
+from app.propagation import ground_track, propagate
+from app.schemas import GroundTrackPoint, SatellitePosition
 
 
 async def get_current_positions(db: AsyncSession) -> list[SatellitePosition]:
@@ -40,3 +40,16 @@ async def get_current_positions(db: AsyncSession) -> list[SatellitePosition]:
             )
         )
     return positions
+
+
+async def get_ground_track(db: AsyncSession, norad_id: int) -> list[GroundTrackPoint] | None:
+    """Devuelve la traza de órbita del satélite, o None si no está trackeado."""
+    result = await db.execute(select(Satellite).where(Satellite.norad_id == norad_id))
+    sat = result.scalar_one_or_none()
+    if sat is None:
+        return None
+
+    track = ground_track(sat.tle_line1, sat.tle_line2, sat.name)
+    return [
+        GroundTrackPoint(latitude=lat, longitude=lon, timestamp=t) for t, lat, lon in track
+    ]

@@ -1,7 +1,8 @@
 """Propagación orbital SGP4 vía skyfield (wrapper de alto nivel sobre sgp4
 que ya resuelve la conversión TEME -> geodésica WGS84 correctamente)."""
 
-from datetime import datetime, timezone
+import math
+from datetime import datetime, timedelta, timezone
 
 from skyfield.api import EarthSatellite, load, wgs84
 
@@ -32,3 +33,34 @@ def propagate(
     speed = (vx**2 + vy**2 + vz**2) ** 0.5
 
     return lat, lon, alt_km, speed
+
+
+def orbital_period_minutes(tle_line1: str, tle_line2: str, name: str = "SAT") -> float:
+    """Período orbital en minutos, derivado del movimiento medio (no_kozai,
+    en rad/min) que trae el propio TLE."""
+    satellite = EarthSatellite(tle_line1, tle_line2, name, _ts)
+    return (2 * math.pi) / satellite.model.no_kozai
+
+
+def ground_track(
+    tle_line1: str,
+    tle_line2: str,
+    name: str = "SAT",
+    samples: int = 120,
+    when: datetime | None = None,
+) -> list[tuple[datetime, float, float]]:
+    """Muestrea la traza de órbita (lat/lon del punto subsatelital, sin
+    altitud: una ground track se proyecta sobre la superficie) a lo largo de
+    un período orbital completo, centrado en `when` (mitad pasado, mitad
+    futuro). Devuelve una lista de (instante UTC, lat_deg, lon_deg)."""
+    when = when or datetime.now(timezone.utc)
+    half_period = timedelta(minutes=orbital_period_minutes(tle_line1, tle_line2, name) / 2)
+    start = when - half_period
+    step = (2 * half_period) / (samples - 1)
+
+    points = []
+    for i in range(samples):
+        t = start + step * i
+        lat, lon, _alt_km, _speed = propagate(tle_line1, tle_line2, name, when=t)
+        points.append((t, lat, lon))
+    return points

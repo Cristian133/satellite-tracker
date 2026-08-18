@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { SatellitePosition } from '../types/satellite'
+import type { GroundTrackPoint, SatellitePosition } from '../types/satellite'
 
 // Cesium/Resium need a real WebGL canvas, which jsdom can't provide, so the
 // globe rendering itself is out of scope here. These mocks let us verify the
@@ -13,13 +13,16 @@ const flyToMock = vi.fn()
 
 vi.mock('resium', () => ({
   Viewer: ({ children }: { children?: ReactNode }) => <div data-testid="viewer">{children}</div>,
-  Entity: ({ name, children }: { name: string; children?: ReactNode }) => (
+  Entity: ({ name, children }: { name?: string; children?: ReactNode }) => (
     <div data-testid="entity" data-name={name}>
       {children}
     </div>
   ),
   PointGraphics: () => null,
   LabelGraphics: ({ text }: { text: string }) => <div data-testid="label">{text}</div>,
+  PolylineGraphics: ({ positions }: { positions: unknown[] }) => (
+    <div data-testid="ground-track" data-points={positions.length} />
+  ),
   useCesium: () => ({ viewer: { camera: { flyTo: flyToMock } } }),
 }))
 
@@ -30,8 +33,18 @@ vi.mock('cesium', () => ({
       public y: number,
     ) {}
   },
-  Cartesian3: { fromDegrees: vi.fn((longitude: number, latitude: number, height: number) => ({ longitude, latitude, height })) },
-  Color: { YELLOW: 'YELLOW', BLACK: 'BLACK', WHITE: 'WHITE' },
+  Cartesian3: {
+    fromDegrees: vi.fn((longitude: number, latitude: number, height: number) => ({ longitude, latitude, height })),
+    // Espeja el comportamiento real: un par [lon, lat] por punto de la traza.
+    fromDegreesArray: vi.fn((coords: number[]) => {
+      const points: { longitude: number; latitude: number }[] = []
+      for (let i = 0; i < coords.length; i += 2) {
+        points.push({ longitude: coords[i], latitude: coords[i + 1] })
+      }
+      return points
+    }),
+  },
+  Color: { YELLOW: 'YELLOW', BLACK: 'BLACK', WHITE: 'WHITE', CYAN: 'CYAN' },
 }))
 
 import { Globe } from './Globe'
@@ -80,5 +93,31 @@ describe('Globe', () => {
     rerender(<Globe satellite={{ ...satellite, latitude: satellite.latitude + 1 }} />)
 
     expect(flyToMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not render a ground track when no points are available', () => {
+    render(<Globe satellite={satellite} groundTrack={[]} />)
+
+    expect(screen.queryByTestId('ground-track')).not.toBeInTheDocument()
+  })
+
+  it('does not render a ground track with a single point (nothing to draw a line between)', () => {
+    const track: GroundTrackPoint[] = [{ latitude: 1, longitude: 2, timestamp: '2026-01-01T00:00:00Z' }]
+
+    render(<Globe satellite={satellite} groundTrack={track} />)
+
+    expect(screen.queryByTestId('ground-track')).not.toBeInTheDocument()
+  })
+
+  it('renders a polyline with every ground track point once there are at least two', () => {
+    const track: GroundTrackPoint[] = [
+      { latitude: 1, longitude: 2, timestamp: '2026-01-01T00:00:00Z' },
+      { latitude: 3, longitude: 4, timestamp: '2026-01-01T00:01:00Z' },
+      { latitude: 5, longitude: 6, timestamp: '2026-01-01T00:02:00Z' },
+    ]
+
+    render(<Globe satellite={satellite} groundTrack={track} />)
+
+    expect(screen.getByTestId('ground-track')).toHaveAttribute('data-points', String(track.length))
   })
 })

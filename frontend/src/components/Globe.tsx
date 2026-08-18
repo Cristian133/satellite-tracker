@@ -1,10 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { Cartesian2, Cartesian3, Color } from 'cesium'
-import { Entity, LabelGraphics, PointGraphics, Viewer, useCesium } from 'resium'
-import type { SatellitePosition } from '../types/satellite'
+import { Entity, LabelGraphics, PointGraphics, PolylineGraphics, Viewer, useCesium } from 'resium'
+import type { GroundTrackPoint, SatellitePosition } from '../types/satellite'
 
 interface GlobeProps {
   satellite: SatellitePosition | null
+  groundTrack?: GroundTrackPoint[]
 }
 
 /** Vuela la cámara hacia el satélite la primera vez que llega su posición. */
@@ -29,10 +30,21 @@ function CameraTracker({ satellite }: { satellite: SatellitePosition | null }) {
   return null
 }
 
-export function Globe({ satellite }: GlobeProps) {
+export function Globe({ satellite, groundTrack = [] }: GlobeProps) {
   return (
     <Viewer full timeline={false} animation={false}>
       <CameraTracker satellite={satellite} />
+      {groundTrack.length > 1 && (
+        <Entity>
+          <PolylineGraphics
+            positions={Cartesian3.fromDegreesArray(
+              groundTrack.flatMap((point) => [point.longitude, point.latitude]),
+            )}
+            width={2}
+            material={Color.CYAN}
+          />
+        </Entity>
+      )}
       {satellite && (
         <Entity
           name={satellite.name}

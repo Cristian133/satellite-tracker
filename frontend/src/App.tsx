@@ -1,6 +1,7 @@
 import { Ion } from 'cesium'
 import './App.css'
 import { Globe } from './components/Globe'
+import { useGroundTrack } from './hooks/useGroundTrack'
 import { useSatelliteSocket } from './hooks/useSatelliteSocket'
 
 const ionToken = import.meta.env.VITE_CESIUM_ION_TOKEN
@@ -10,10 +11,11 @@ if (ionToken) {
 
 function App() {
   const { satellite, connected } = useSatelliteSocket()
+  const groundTrack = useGroundTrack(satellite?.norad_id ?? null)
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh' }}>
-      <Globe satellite={satellite} />
+      <Globe satellite={satellite} groundTrack={groundTrack} />
       <div
         style={{
           position: 'absolute',
