@@ -244,6 +244,22 @@ export function VisiblePassPanel({ noradId }: VisiblePassPanelProps) {
           <div>Culmina: {new Date(state.pass.culminate_time).toLocaleString()}</div>
           <div>Elevación máx.: {state.pass.max_elevation_deg.toFixed(0)}°</div>
           <div>Azimut: {state.pass.azimuth_deg.toFixed(0)}°</div>
+
+          <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+            {state.pass.weather ? (
+              <>
+                <div>🌤️ {state.pass.weather.description}</div>
+                <div>Temperatura: {state.pass.weather.temperature_c.toFixed(0)}°C</div>
+                <div>Nubosidad: {state.pass.weather.cloud_cover_pct.toFixed(0)}%</div>
+                <div>
+                  Prob. de precipitación:{' '}
+                  {state.pass.weather.precipitation_probability_pct.toFixed(0)}%
+                </div>
+              </>
+            ) : (
+              <div>Sin pronóstico disponible para esa fecha.</div>
+            )}
+          </div>
         </div>
       )}
     </div>

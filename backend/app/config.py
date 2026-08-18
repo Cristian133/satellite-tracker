@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     nominatim_url: str = "https://nominatim.openstreetmap.org/search"
     nominatim_user_agent: str = "satellite-tracker/1.0 (dev local)"
 
+    # Open-Meteo: pronóstico horario gratuito, sin API key.
+    open_meteo_url: str = "https://api.open-meteo.com/v1/forecast"
+
     class Config:
         env_file = ".env"
 
