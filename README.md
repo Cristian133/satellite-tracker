@@ -244,12 +244,35 @@ final step, since GitHub-hosted runners always have Docker available.
 
 Free-tier deployment, split by concern (see `fly.toml` in `backend/`):
 
-| Piece | Where | Auto-deploys on push to `main`? |
-|---|---|---|
-| Frontend (static Vite build) | [Vercel](https://vercel.com) | Yes, once the project's Git integration is connected (Project Settings → Git) |
-| Backend (Dockerfile, FastAPI + WebSocket + APScheduler) | [Fly.io](https://fly.io) | Yes, via the `deploy-backend` job in `ci.yml` (needs the `backend` job to pass first) |
-| Postgres | [Neon](https://neon.tech) | — (managed, not part of this repo's deploy) |
-| Redis | [Upstash](https://upstash.com) | — (managed, not part of this repo's deploy) |
+| Piece | Where |
+|---|---|
+| Frontend (static Vite build) | [Vercel](https://vercel.com) |
+| Backend (Dockerfile, FastAPI + WebSocket + APScheduler) | [Fly.io](https://fly.io) |
+| Postgres | [Neon](https://neon.tech) (managed, not part of this repo's deploy) |
+| Redis | [Upstash](https://upstash.com) (managed, not part of this repo's deploy) |
+
+**Deploys are gated behind a GitHub Release, not every push to `main`.**
+Every push still runs the full `backend`/`frontend` (lint + tests + build)
+jobs as a continuous quality gate, but nothing reaches production until
+someone **publishes a Release** on GitHub — that's the `release: published`
+event that triggers `deploy-backend` and `deploy-frontend` in `ci.yml` (both
+re-run lint/tests/build first, against the exact commit the release points
+to, before deploying).
+
+- **Backend → Fly.io**: `deploy-backend` runs `flyctl deploy`, authenticated
+  with a `FLY_API_TOKEN` repo secret
+  (`flyctl tokens create deploy -a satellite-tracker-backend`).
+- **Frontend → Vercel**: `deploy-frontend` does a plain `curl -X POST` to a
+  **Deploy Hook** URL (Project Settings → Git → Deploy Hooks), stored as the
+  `DEPLOY_HOOK_VERCEL` repo secret. Deploy Hooks don't need a Vercel user
+  token — just a URL, which is what let us route around a broken Personal
+  Access Token in this project's Vercel account (every token it issued came
+  back `404 User not found` from the API itself, unrelated to the CLI or repo).
+  Because deploys are meant to happen only from a published Release and not
+  from Vercel's own Git integration reacting to every push, **Project
+  Settings → Git → Ignored Build Step is set to `exit 0`** — that
+  unconditionally cancels any build Vercel would otherwise start on its own
+  from a push, leaving the Deploy Hook as the only path to a real deployment.
 
 The backend needs `DATABASE_URL` (with `+asyncpg`, and `?ssl=require` instead
 of Neon's default `sslmode=require&channel_binding=require` — asyncpg doesn't
@@ -259,9 +282,6 @@ set as Fly secrets:
 ```bash
 flyctl secrets set DATABASE_URL='postgresql+asyncpg://...?ssl=require' REDIS_URL='rediss://...' --app satellite-tracker-backend
 ```
-
-The `deploy-backend` CI job authenticates with a `FLY_API_TOKEN` repo secret
-(`flyctl tokens create deploy -a satellite-tracker-backend`).
 
 Fly's `fly.toml` runs a single always-on machine
 (`min_machines_running = 1`, `auto_stop_machines = 'off'`) rather than Fly's

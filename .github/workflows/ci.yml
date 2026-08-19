@@ -1,12 +1,20 @@
 name: CI
 
-# Corre lo mismo que el pre-commit local (lint + tests unitarios) en cada
-# push de cualquier rama, más el build real de la imagen Docker de cada
-# servicio (el runner de GitHub Actions siempre tiene Docker disponible, a
-# diferencia del entorno local).
+# Lint + tests unitarios + build de imagen Docker en cada push de cualquier
+# rama (mismos checks que el pre-commit local, más el build real de la
+# imagen Docker de cada servicio — el runner de GitHub Actions siempre tiene
+# Docker disponible, a diferencia del entorno local).
+#
+# El deploy a producción NO ocurre en cada push: solo se dispara al publicar
+# un Release en GitHub (evento `release: published`), como gate manual antes
+# de producción. Los jobs backend/frontend (lint+tests+build) vuelven a
+# correr también en ese evento, para validar el commit exacto que apunta el
+# Release antes de deployarlo.
 on:
   push:
     branches: ['**']
+  release:
+    types: [published]
   workflow_dispatch:
 
 jobs:
@@ -43,7 +51,7 @@ jobs:
   deploy-backend:
     name: Deploy backend a Fly.io
     needs: backend
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -89,3 +97,25 @@ jobs:
 
       - name: Build de la imagen Docker
         run: docker build -t satellite-tracker-frontend:ci .
+
+  deploy-frontend:
+    name: Deploy frontend a Vercel
+    needs: frontend
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      # Deploy Hook en vez de la CLI + token: no requiere autenticar un
+      # usuario, solo dispara un build de la rama configurada en el hook
+      # (main) con el código ya en el repo remoto de Vercel.
+      - name: Disparar deploy vía Deploy Hook
+        run: |
+          response=$(curl -sS -w '\n%{http_code}' -X POST "$DEPLOY_HOOK_VERCEL")
+          status="${response##*$'\n'}"
+          body="${response%$'\n'"$status"}"
+          echo "$body"
+          if [ "$status" -ge 300 ]; then
+            echo "Deploy Hook respondió $status" >&2
+            exit 1
+          fi
+        env:
+          DEPLOY_HOOK_VERCEL: ${{ secrets.DEPLOY_HOOK_VERCEL }}
