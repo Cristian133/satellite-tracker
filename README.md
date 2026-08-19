@@ -240,6 +240,34 @@ The one difference from the local hooks: instead of the lighter local build
 checks, CI builds each service's actual Docker image (`docker build`) as its
 final step, since GitHub-hosted runners always have Docker available.
 
+## Deployment
+
+Free-tier deployment, split by concern (see `fly.toml` in `backend/`):
+
+| Piece | Where | Auto-deploys on push to `main`? |
+|---|---|---|
+| Frontend (static Vite build) | [Vercel](https://vercel.com) | Yes, once the project's Git integration is connected (Project Settings → Git) |
+| Backend (Dockerfile, FastAPI + WebSocket + APScheduler) | [Fly.io](https://fly.io) | Yes, via the `deploy-backend` job in `ci.yml` (needs the `backend` job to pass first) |
+| Postgres | [Neon](https://neon.tech) | — (managed, not part of this repo's deploy) |
+| Redis | [Upstash](https://upstash.com) | — (managed, not part of this repo's deploy) |
+
+The backend needs `DATABASE_URL` (with `+asyncpg`, and `?ssl=require` instead
+of Neon's default `sslmode=require&channel_binding=require` — asyncpg doesn't
+understand those two) and `REDIS_URL` (`rediss://`, not `redis://`, for TLS)
+set as Fly secrets:
+
+```bash
+flyctl secrets set DATABASE_URL='postgresql+asyncpg://...?ssl=require' REDIS_URL='rediss://...' --app satellite-tracker-backend
+```
+
+The `deploy-backend` CI job authenticates with a `FLY_API_TOKEN` repo secret
+(`flyctl tokens create deploy -a satellite-tracker-backend`).
+
+Fly's `fly.toml` runs a single always-on machine
+(`min_machines_running = 1`, `auto_stop_machines = 'off'`) rather than Fly's
+scale-to-zero default, since the backend needs to stay up for the persistent
+WebSocket and the background TLE-refresh scheduler.
+
 ## Configuration
 
 Environment variables (see `.env.example`):

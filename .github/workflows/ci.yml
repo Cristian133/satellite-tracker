@@ -40,6 +40,22 @@ jobs:
       - name: Build de la imagen Docker
         run: docker build -t satellite-tracker-backend:ci .
 
+  deploy-backend:
+    name: Deploy backend a Fly.io
+    needs: backend
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: flyctl deploy
+        run: flyctl deploy --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
   frontend:
     name: Frontend (lint, tests, build)
     runs-on: ubuntu-latest
