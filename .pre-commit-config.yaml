@@ -5,7 +5,7 @@
 #
 # Instalación:
 #   pip install pre-commit
-#   pre-commit install
+#   pre-commit install --hook-type pre-commit --hook-type commit-msg
 #
 # Corrida manual sobre todo el repo:
 #   pre-commit run --all-files
@@ -68,3 +68,10 @@ repos:
         language: system
         files: ^frontend/
         pass_filenames: false
+
+      - id: commitlint
+        name: commitlint - conventional commit message
+        entry: frontend/node_modules/.bin/commitlint --config frontend/commitlint.config.cjs --edit
+        language: system
+        stages: [commit-msg]
+        pass_filenames: true
