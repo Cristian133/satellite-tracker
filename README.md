@@ -210,7 +210,11 @@ hygiene checks (trailing whitespace, merge conflict markers, large files),
 the backend linter/formatter (Ruff, autofixing), the backend unit tests, a
 backend build sanity check (`compileall`, catches import/syntax errors fast
 without needing Docker), the frontend linter (ESLint), the frontend unit
-tests (Vitest), and the frontend production build (`vite build`).
+tests (Vitest), and the frontend production build (`vite build`). On every
+`git commit`, a separate `commit-msg` hook (commitlint, with
+`@commitlint/config-conventional`) checks that the commit message itself
+follows [Conventional Commits](https://www.conventionalcommits.org/)
+(`feat: ...`, `fix: ...`, `chore: ...`, etc.).
 
 The hooks call the tools already installed in `backend/.venv` and
 `frontend/node_modules` (see [Tests](#tests) above for how to set those up)
@@ -218,7 +222,8 @@ The hooks call the tools already installed in `backend/.venv` and
 
 ```bash
 pip install pre-commit
-pre-commit install        # one-time, wires it into .git/hooks/pre-commit
+pre-commit install --hook-type pre-commit --hook-type commit-msg
+# wires it into .git/hooks/pre-commit and .git/hooks/commit-msg
 
 pre-commit run --all-files  # optional: run it on demand, without committing
 ```
